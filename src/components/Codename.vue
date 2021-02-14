@@ -5,7 +5,7 @@
 </template>
 
 <script>
-import { ref } from 'vue'
+import { ref, getCurrentInstance } from 'vue'
 export default {
     name: "Codename",
     props: {
@@ -14,6 +14,8 @@ export default {
         isSpymaster: Boolean,
     },
     setup(props){
+        const app = getCurrentInstance()
+        const emitter = app.appContext.config.globalProperties.emitter;
         const color = ref(0)
 
         let showColors = "";
@@ -52,11 +54,13 @@ export default {
                 elem = elem.parentNode
             }
             elem.style.animationPlayState = "initial"
+
+            emitter.emit('codenames-click', elem)
         }
 
         return {
             color,
-            CodenameClick
+            CodenameClick,
         };
     }
 }

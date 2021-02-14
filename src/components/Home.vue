@@ -1,5 +1,6 @@
 <template>
   <Button text="Start Game" href="/game"></Button>
+  
 </template>
 
 <script>

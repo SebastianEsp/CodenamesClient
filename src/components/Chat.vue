@@ -9,36 +9,26 @@
 </template>
 
 <script>
-import { onMounted } from 'vue';
+import { onMounted, getCurrentInstance } from 'vue';
 import Button from './Button.vue';
 export default {
   components: { Button },
     name: "Chat",
-    props: {
-        ws: Object
-    },
-    setup(props){
-
+    setup(){
+        const app = getCurrentInstance()
+        const emitter = app.appContext.config.globalProperties.emitter;
         onMounted(() => {
             var log = document.getElementById("log");
-            props.ws.onmessage = (event) => {
-                let message = JSON.parse(event.data)
-
-                switch (message.MsgType) {
-                    case "ChatMsg":
-                        console.log("Chat message: " + message.Data)
-                            var messages = message.Data.split('\n');
-                            for (var i = 0; i < messages.length; i++) {
-                                var item = document.createElement("div");
-                                item.innerText = messages[i];
-                                AppendLog(item);
-                            }
-                        break
-                
-                    default:
-                        break;
+            //Listen for new chat messages
+            emitter.on('receive-chat-message', message => {
+                console.log("Chat message: " + message)
+                var messages = message.split('\n');
+                for (var i = 0; i < messages.length; i++) {
+                    var item = document.createElement("div");
+                    item.innerText = messages[i];
+                    AppendLog(item);
                 }
-            }
+            })
         })
 
         const AppendLog = (item) => {
@@ -50,9 +40,9 @@ export default {
         }
 
         const Send = (msg) => {
-            let message = {MsgType: "ChatMsg", Data: msg.target.form[0].value}
-            console.log(message)
-            props.ws.send(JSON.stringify(message))
+            let message = {MsgType: "ChatMsg", Data: {Message: msg.target.form[0].value}}
+            //Send new chat message
+            emitter.emit('send-chat-message', JSON.stringify(message))
         }
 
         return {

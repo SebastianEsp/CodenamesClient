@@ -3,106 +3,88 @@
         <h1 class="text-center text-6xl text-red-600">RED</h1>
         <h1 class="text-center text-6xl text-blue-700">BLUE</h1>
         <div class="grid grid-cols-5">
-            <Codename v-for="item in game.board[0]" :key="item" :word="item.Word" :agent="item.Agent"></Codename>
+            <Codename v-for="item in game.board[0]" :key="item" :word="item.Word" :agent="item.Agent" :posX="item.PosX" :posY="item.PosY" @codenameClick="onCodenameClick"></Codename>
         </div>
         <div class="grid grid-cols-5">
-            <Codename v-for="item in game.board[1]" :key="item" :word="item.Word" :agent="item.Agent"></Codename>
-        </div>
-
-        <div class="grid grid-cols-5">
-            <Codename v-for="item in game.board[2]" :key="item" :word="item.Word" :agent="item.Agent"></Codename>
+            <Codename v-for="item in game.board[1]" :key="item" :word="item.Word" :agent="item.Agent" :posX="item.PosX" :posY="item.PosY" @codenameClick="onCodenameClick"></Codename>
         </div>
 
         <div class="grid grid-cols-5">
-            <Codename v-for="item in game.board[3]" :key="item" :word="item.Word" :agent="item.Agent"></Codename>
+            <Codename v-for="item in game.board[2]" :key="item" :word="item.Word" :agent="item.Agent" :posX="item.PosX" :posY="item.PosY" @codenameClick="onCodenameClick"></Codename>
         </div>
 
         <div class="grid grid-cols-5">
-            <Codename v-for="item in game.board[4]" :key="item" :word="item.Word" :agent="item.Agent"></Codename>
+            <Codename v-for="item in game.board[3]" :key="item" :word="item.Word" :agent="item.Agent" :posX="item.PosX" :posY="item.PosY" @codenameClick="onCodenameClick"></Codename>
+        </div>
+
+        <div class="grid grid-cols-5">
+            <Codename v-for="item in game.board[4]" :key="item" :word="item.Word" :agent="item.Agent" :posX="item.PosX" :posY="item.PosY" @codenameClick="onCodenameClick"></Codename>
         </div>
         <div>
-            <Chat :ws="ws"></Chat>
+            <Chat></Chat>
         </div>
     </div>
+    <Websocket></Websocket>
 </template>
 
 <script>
-import { onMounted, ref, reactive } from 'vue';
+import { onMounted, ref, reactive, getCurrentInstance } from 'vue';
 import Codename from './Codename.vue';
 import Chat from './Chat.vue';
+import Websocket from './Websocket.vue';
 export default {
     name: "Game",
     components: {
         Codename,
-        Chat
+        Chat,
+        Websocket,
     },
     setup(){
+        const app = getCurrentInstance()
+        const emitter = app.appContext.config.globalProperties.emitter;
         const game = reactive({
             state: null,
             board: null,
-            startingTeam: null
+            startingTeam: null,
         })
         const loading = ref(true);
-        const error = ref(null);
-
-        const ws = new WebSocket("ws://127.0.0.1:8080/ws2/test");
-        console.log("Attempting Connection...");
-
-        const GetBoardState = () => {
-            loading.value = true;
-            let state = null;
-
-            ws.onopen = () => {
-                console.log("Successfully Connected");
-                //ws.send("Hi From the Client!");
-            };
-
-            ws.onmessage = (event) => {
-                let message = JSON.parse(event.data)
-
-                switch (message.MsgType) {
-                    case "BoardState":
-                        state = JSON.parse(message.Data);
-                        game.state = state;
-                        game.board = state.Board.Codenames;
-                        game.startingTeam = state.StartingTeam;
-                        break;
-                
-                    default:
-                        break;
-                }
-
-                loading.value = false;
-
-                /**var messages = evt.data.split('\n');
-                for (var i = 0; i < messages.length; i++) {
-                    var item = document.createElement("div");
-                    item.innerText = messages[i];
-                    appendLog(item);
-                }**/
-            };
-            
-            ws.onclose = event => {
-                console.log("Socket Closed Connection: ", event);
-                //ws.send("Client Closed!");
-            };
-
-            ws.onerror = error => {
-                console.log("Socket Error: ", error);
-                throw error;
-            };
-        }
 
         onMounted(() => {
             //setInterval(GetBoardState, 1000)
-            GetBoardState();
+            //GetBoardState();
+            emitter.on('board-state', e => {
+                loading.value = true
+                let data = JSON.parse(e);
+                game.board = data.Board.Codenames;
+                game.startingTeam = data.StartingTeam;
+                game.state = data.GameState
+                loading.value = false;
+            })
+            emitter.on('codenames-click', e => onCodenameClick(e))
+            emitter.on('update-state', e => {
+                console.log(e)
+            } )
         })
+
+        const onCodenameClick = (elem) => {
+            console.log(elem)
+            var x,y
+            x = elem.getAttribute("posx")
+            y = elem.getAttribute("posy")
+            game.board[x][y].State.Guessed = true
+            game.board[x][y].State.GuessedBy = game.state.CurrentTeam
+
+            let update = {MsgType: "UpdateState", Data: {codename: game.board[x][y]}}
+
+            emitter.emit('send-state-update', JSON.stringify(update))
+        }
 
         return {
             game,
             loading,
-            GetBoardState,
-            ws
+            //GetBoardState,
+            //ws,
+            onCodenameClick
         };
     }
 }
